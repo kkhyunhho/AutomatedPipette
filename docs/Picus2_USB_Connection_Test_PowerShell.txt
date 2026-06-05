@@ -1,0 +1,21 @@
+The simplest way to test USB connection is to use PowerShell commands:
+
+ 
+
+[System.IO.Ports.SerialPort]::getportnames()
+
+$port= new-Object System.IO.Ports.SerialPort COM5,9600,None,8,one
+
+$port.open()
+
+$port.WriteLine("{`"no`": 0, `"data`":`GET_VERSION`"}")
+
+$port.ReadLine()
+
+$port.ReadLine()
+
+$port.ReadLine()
+
+$port.Close()
+
+ 
