@@ -1,0 +1,59 @@
+"""Constants for the Sartorius Picus 2 BLE command interface."""
+
+# Nordic UART Service UUIDs exposed by the Picus 2.
+uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+uart_rx_char_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+uart_tx_char_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+# The firmware parses one command per line; every command ends with this.
+command_terminator = "\r\n"
+
+# Default seconds to wait for a command's END response.
+default_command_timeout = 25.0
+
+# Scanning defaults; the pipette sleeps quickly, so retries help.
+default_scan_attempts = 3
+scan_timeout = 10.0
+
+# Seconds to wait after requesting motor control before answering the
+# on-device authorization prompt.
+motor_prompt_delay = 3.0
+
+# Soft-key button that answers YES to the motor-control prompt.
+yes_button = "TRIGGER_BUTTON_RIGHT"
+
+# Inclusive motor speed bounds.
+min_speed = 1
+max_speed = 9
+
+# Default blow-out delay before the go-home move, in milliseconds.
+default_blow_out_delay_ms = 3000
+
+# Result tag that indicates success.
+result_ok = "OK"
+
+# Result tags that indicate failure.
+error_results = frozenset(
+    {
+        "FULL",
+        "SYNTAX_ERROR",
+        "ERROR_PARSING",
+        "UNKNOWN_COMMAND",
+        "MISSING_PARAMETERS",
+        "CHK_ERROR",
+        "NOT_ALLOWED",
+        "FAILED",
+        "MOTOR_CONTROL_ABORTED",
+        "INVALID_PARAMETERS",
+        "TIP_EJECT_ERROR",
+        "RUN_TO_ZERO_ERROR",
+        "UNDERSTEP_OVERSTEP_ERROR",
+        "FATAL_ERROR",
+    }
+)
+
+# Every recognized result tag.
+result_tags = error_results | {result_ok}
+
+# Control markers that frame every command's response.
+control_tags = frozenset({"ACK", "BEGIN", "END"})
