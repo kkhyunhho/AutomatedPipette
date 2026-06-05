@@ -137,12 +137,12 @@ the full workflow: issue -> branch -> implement -> PR.
 
 ### Work items
 - [x] Cut branch `feature/picus2-control-module` from `main`
-- [ ] Create GitHub issue (auto-mode blocked it; pending user go-ahead)
+- [x] Create GitHub issue (#3)
 - [x] Add `pyproject.toml` (ruff line-length 80) and Python `.gitignore`
 - [x] Implement `src/picus2/`: constants, protocol, client, pipetting
 - [x] Add `tests/` unit tests (protocol + volume math); 12 pass
 - [x] Add `examples/example_forward.py`
 - [x] ruff check/format clean; hardware smoke test via the module OK
       (GET_VERSION CP-7.0, model SINGLE_CHANNEL_1000UL)
-- [ ] Commit, push, open PR
+- [x] Commit (2), push branch, open PR (#4, closes #3)
 
