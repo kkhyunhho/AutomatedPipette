@@ -7,7 +7,7 @@ name = "picus2"
 version = "0.2.0"
 description = "Async control library for the Sartorius Picus 2 pipette (BLE/USB)"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = ["bleak>=0.22", "pyserial>=3.5"]
 
 [tool.setuptools.packages.find]
