@@ -146,3 +146,35 @@ the full workflow: issue -> branch -> implement -> PR.
       (GET_VERSION CP-7.0, model SINGLE_CHANNEL_1000UL)
 - [x] Commit (2), push branch, open PR (#4, closes #3)
 
+## 2026-06-07 | Add USB serial transport via a transport abstraction
+
+### Background
+The module was BLE-only (`bleak`). USB serial now works in Docker
+(issue #7) and is the preferred transport here. Refactor `Picus2Client`
+to talk through a pluggable transport so the command protocol and the
+pipetting helpers are shared by BLE and USB. The current BLE-only code
+is preserved on the `bluetooth-connection` branch before refactoring.
+
+### Design
+- `errors.py`: shared exception hierarchy (avoids a client<->transport
+  import cycle).
+- `transport.py`: `Transport` ABC + `BleTransport` (bleak) +
+  `SerialTransport` (pyserial; a reader thread frames `\r\n` lines and
+  marshals them onto the event loop via `call_soon_threadsafe`).
+- `Picus2Client(transport)` plus `over_ble(name)` / `over_serial(port)`
+  factories. The protocol and pipetting helpers are unchanged.
+
+### Work items
+- [x] Create `bluetooth-connection` branch from the BLE-only code
+- [x] Add `src/picus2/errors.py` and `src/picus2/transport.py`
+      (`Transport` ABC + `BleTransport` + `SerialTransport`)
+- [x] Refactor `client.py` to use a transport; add `over_ble` /
+      `over_serial` factory methods (bump to 0.2.0)
+- [x] Add serial constants and `pyserial` to `pyproject.toml`
+- [x] Update `__init__` exports and the example; add `example_usb.py`
+- [x] Add a hardware-free client/transport test (`FakeTransport`);
+      14 unit tests pass
+- [x] ruff clean, unit tests pass, USB hardware smoke test via the
+      module OK: `over_serial("/dev/ttyACM0")` -> version CP-7.0,
+      model SINGLE_CHANNEL_1000UL, nominal 1000uL, clean disconnect
+

@@ -1,9 +1,16 @@
-"""Constants for the Sartorius Picus 2 BLE command interface."""
+"""Constants for the Sartorius Picus 2 command interface (BLE and USB)."""
 
-# Nordic UART Service UUIDs exposed by the Picus 2.
+# Nordic UART Service UUIDs exposed by the Picus 2 over BLE.
 uart_service_uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 uart_rx_char_uuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 uart_tx_char_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+# USB serial defaults. The pipette enumerates as a CDC-ACM port, which
+# ignores the baud rate, but the reference test uses 9600.
+default_serial_baud = 9600
+
+# Poll interval (seconds) for the serial reader; bounds shutdown latency.
+serial_read_timeout = 0.2
 
 # The firmware parses one command per line; every command ends with this.
 command_terminator = "\r\n"

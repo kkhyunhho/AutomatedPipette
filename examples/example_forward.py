@@ -7,6 +7,8 @@ Pair the pipette with the OS first, then run from the project root:
 
 The pipette must be awake and in Pipetting mode. Authorization is done
 with no tip mounted, so mount the tip after enabling motor control.
+
+For USB, see ``examples/example_usb.py``.
 """
 
 import asyncio
@@ -21,7 +23,7 @@ pipette_speed = 7
 
 async def main() -> None:
     """Connect, run one forward-pipetting cycle, and release control."""
-    async with Picus2Client(device_name) as pipette:
+    async with Picus2Client.over_ble(device_name) as pipette:
         print("model:", await pipette.get_model())
         print("version:", await pipette.get_version())
         await pipette.enable_motor_control()
