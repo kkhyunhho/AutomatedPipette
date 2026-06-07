@@ -193,3 +193,19 @@ steps. Run in a real terminal. Volume 500 uL, speed 7.
 - [ ] User runs it in a terminal with real liquid (500 uL, speed 7)
 - [ ] Record the observed result
 
+## 2026-06-07 | Write project READMEs from the Picus 2 manuals
+
+### Background
+The repo README was empty. Write a proper top-level README sourced from
+the datasheet and command/pipetting references. Per the user, work
+directly on `main` (no feature branch) and give each long-lived branch
+a README matching its connection approach: `main` is USB-first /
+universal control; `bluetooth-connection` is framed around BLE.
+
+### Work items
+- [x] Read the product datasheet for specs and model table (our unit is
+      LH-747081, 1-ch 50-1,000 uL, model SINGLE_CHANNEL_1000UL, CP-7.0)
+- [x] Write `README.md` on `main` (device specs, module architecture,
+      USB/BLE connection, usage, safety)
+- [ ] Write `README.md` on the `bluetooth-connection` branch (BLE focus)
+
