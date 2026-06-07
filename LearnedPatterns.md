@@ -5,8 +5,8 @@
 > Append new patterns after each task completes
 > (see CLAUDE.md §9 Learned Patterns Reference).
 >
-> Last updated: 2026-06-05
-> Total patterns: 6
+> Last updated: 2026-06-07
+> Total patterns: 7
 >
 > Provenance format: `(from ToDo#N)` where N is the 1-based index of the
 > top-level `##` section in `ToDo.md` at the time of extraction.
@@ -81,6 +81,21 @@ _None yet._
     immediately. (Alternative: emulate `TRIGGER_BUTTON_TOP` per command.)
   - **Rule**: Always set `AUTO 1` for fully remote motor sequences.
   - (from ToDo#4)
+
+- pyserial is blocking; bridge it to asyncio with a reader thread.
+  - **Problem**: The async `Picus2Client` needs serial reads delivered
+    like BLE notifications, but `pyserial` has no asyncio API and its
+    `read()` blocks.
+  - **Cause**: `serial.Serial` is a synchronous, thread-oriented API.
+  - **Fix**: Run a daemon reader thread that frames `\r\n` lines and
+    hands each to the event loop via `loop.call_soon_threadsafe`, so the
+    client's line handler always runs on the loop thread (as for BLE).
+    Use a short `timeout` so the loop can poll a stop flag for shutdown,
+    and wrap blocking `write()` in `run_in_executor`.
+  - **Rule**: Never call blocking pyserial APIs from the event loop;
+    isolate them in a thread and marshal results back with
+    `call_soon_threadsafe`.
+  - (from ToDo#9)
 
 ## §4. Workflow Lessons
 

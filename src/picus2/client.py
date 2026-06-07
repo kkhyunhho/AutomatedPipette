@@ -1,56 +1,46 @@
-"""Asynchronous BLE client for the Sartorius Picus 2 pipette."""
+"""Asynchronous client for the Sartorius Picus 2 pipette (BLE or USB)."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
-from bleak import BleakClient, BleakScanner
-
 from . import constants, protocol
+from .errors import (
+    CommandError,
+    CommandTimeoutError,
+    DeviceNotFoundError,
+    Picus2Error,
+)
+from .transport import BleTransport, SerialTransport, Transport
 
 logger = logging.getLogger(__name__)
 
-
-class Picus2Error(Exception):
-    """Base class for Picus 2 client errors."""
-
-
-class DeviceNotFoundError(Picus2Error):
-    """Raised when the pipette cannot be found while scanning."""
-
-
-class CommandTimeoutError(Picus2Error):
-    """Raised when a command's END response does not arrive in time."""
-
-
-class CommandError(Picus2Error):
-    """Raised when the pipette returns an error result.
-
-    Attributes:
-        command: The command string that failed.
-        result: The error result tag returned by the firmware.
-    """
-
-    def __init__(self, command: str, result: str | None) -> None:
-        """Store the failing command and its error result."""
-        super().__init__(f"command {command!r} returned {result}")
-        self.command = command
-        self.result = result
+__all__ = [
+    "Picus2Client",
+    "Picus2Error",
+    "CommandError",
+    "CommandTimeoutError",
+    "DeviceNotFoundError",
+]
 
 
 class Picus2Client:
-    """Async BLE client for the Picus 2 command interface.
+    """Async client for the Picus 2 command interface over any transport.
 
-    The pipette must already be bonded with the host: pair once via the
-    operating system using the passkey shown on the device under
-    Settings -> Bluetooth (the passkey rotates, so read it just before
-    pairing). Motor commands additionally need on-device authorization,
-    performed by :meth:`enable_motor_control`, and the device must be in
-    a pipetting mode rather than the mode-selection menu.
+    The same command protocol runs over BLE and USB serial; construct a
+    client with :meth:`over_ble` or :meth:`over_serial`, or pass a
+    :class:`~picus2.transport.Transport` directly. Motor commands need
+    on-device authorization, performed by :meth:`enable_motor_control`,
+    and the device must be in a pipetting mode rather than the
+    mode-selection menu.
+
+    Over BLE the pipette must already be bonded with the host (pair once
+    via the operating system using the passkey shown under Settings ->
+    Bluetooth). Over USB no pairing is needed.
 
     Example:
-        async with Picus2Client("Picus-46980628") as pipette:
+        async with Picus2Client.over_serial("/dev/ttyACM0") as pipette:
             await pipette.enable_motor_control()
             await pipette.aspirate(500, speed=7)
             await pipette.blow_out(speed=7)
@@ -59,25 +49,71 @@ class Picus2Client:
 
     def __init__(
         self,
+        transport: Transport,
+        *,
+        command_timeout: float = constants.default_command_timeout,
+    ) -> None:
+        """Initialize the client over an already-built transport.
+
+        Args:
+            transport: The link backend (see :meth:`over_ble`,
+                :meth:`over_serial`).
+            command_timeout: Seconds to wait for each command to finish.
+        """
+        self._transport = transport
+        self._command_timeout = command_timeout
+        self._number = 0
+        self._pending: protocol.CommandResponse | None = None
+        self._done = asyncio.Event()
+        transport.set_line_handler(self._handle_line)
+
+    @classmethod
+    def over_ble(
+        cls,
         device_name: str,
         *,
         command_timeout: float = constants.default_command_timeout,
         scan_attempts: int = constants.default_scan_attempts,
-    ) -> None:
-        """Initialize the client.
+        scan_timeout: float = constants.scan_timeout,
+    ) -> "Picus2Client":
+        """Build a client that talks to the pipette over BLE.
 
         Args:
             device_name: Advertised name, e.g. ``"Picus-46980628"``.
             command_timeout: Seconds to wait for each command to finish.
             scan_attempts: Times to retry scanning; the pipette sleeps.
+            scan_timeout: Seconds per scan attempt.
+
+        Returns:
+            A client backed by a :class:`BleTransport`.
         """
-        self._device_name = device_name
-        self._command_timeout = command_timeout
-        self._scan_attempts = scan_attempts
-        self._client: BleakClient | None = None
-        self._number = 0
-        self._pending: protocol.CommandResponse | None = None
-        self._done = asyncio.Event()
+        transport = BleTransport(
+            device_name,
+            scan_attempts=scan_attempts,
+            scan_timeout=scan_timeout,
+        )
+        return cls(transport, command_timeout=command_timeout)
+
+    @classmethod
+    def over_serial(
+        cls,
+        port: str,
+        *,
+        baud: int = constants.default_serial_baud,
+        command_timeout: float = constants.default_command_timeout,
+    ) -> "Picus2Client":
+        """Build a client that talks to the pipette over USB serial.
+
+        Args:
+            port: Serial device path, e.g. ``"/dev/ttyACM0"``.
+            baud: Baud rate; CDC-ACM ignores it but it must be valid.
+            command_timeout: Seconds to wait for each command to finish.
+
+        Returns:
+            A client backed by a :class:`SerialTransport`.
+        """
+        transport = SerialTransport(port, baud=baud)
+        return cls(transport, command_timeout=command_timeout)
 
     async def __aenter__(self) -> "Picus2Client":
         """Connect on entering an async context."""
@@ -92,49 +128,24 @@ class Picus2Client:
 
     @property
     def is_connected(self) -> bool:
-        """True while the BLE link is up."""
-        return self._client is not None and self._client.is_connected
+        """True while the underlying transport link is up."""
+        return self._transport.is_connected
 
     async def connect(self) -> None:
-        """Scan for the pipette and open a notifying BLE connection.
+        """Open the transport and start receiving responses.
 
         Raises:
-            DeviceNotFoundError: If the device is not found after the
-                configured number of scan attempts.
+            DeviceNotFoundError: If the pipette cannot be reached.
         """
-        device = None
-        for attempt in range(1, self._scan_attempts + 1):
-            logger.info(
-                "scanning for %s (attempt %d/%d)",
-                self._device_name,
-                attempt,
-                self._scan_attempts,
-            )
-            device = await BleakScanner.find_device_by_name(
-                self._device_name, timeout=constants.scan_timeout
-            )
-            if device is not None:
-                break
-        if device is None:
-            raise DeviceNotFoundError(
-                f"{self._device_name} not found; is it awake and in range?"
-            )
-        self._client = BleakClient(device)
-        await self._client.connect()
-        await self._client.start_notify(
-            constants.uart_tx_char_uuid, self._handle_rx
-        )
-        logger.info("connected to %s", self._device_name)
+        await self._transport.connect()
 
     async def disconnect(self) -> None:
-        """Close the BLE connection if it is open."""
-        if self._client is not None and self._client.is_connected:
-            await self._client.disconnect()
-        self._client = None
+        """Close the transport if it is open."""
+        await self._transport.disconnect()
 
-    def _handle_rx(self, _characteristic: object, data: bytearray) -> None:
-        """Feed an incoming notification into the pending response."""
-        line = protocol.parse_line(bytes(data))
+    def _handle_line(self, raw: bytes) -> None:
+        """Feed an incoming response line into the pending response."""
+        line = protocol.parse_line(raw)
         if line is None:
             return
         logger.debug("recv %s", line.text)
@@ -150,16 +161,12 @@ class Picus2Client:
         return self._number
 
     async def _write(self, payload: bytes) -> None:
-        """Write raw bytes to the RX characteristic.
+        """Write raw bytes to the transport.
 
         Raises:
-            Picus2Error: If the client is not connected.
+            Picus2Error: If the transport is not connected.
         """
-        if self._client is None:
-            raise Picus2Error("not connected")
-        await self._client.write_gatt_char(
-            constants.uart_rx_char_uuid, payload, response=False
-        )
+        await self._transport.write(payload)
 
     async def _await_pending(
         self, command: str, timeout: float | None

@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "picus2"
-version = "0.1.0"
-description = "Async BLE control library for the Sartorius Picus 2 pipette"
+version = "0.2.0"
+description = "Async control library for the Sartorius Picus 2 pipette (BLE/USB)"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["bleak>=0.22"]
+dependencies = ["bleak>=0.22", "pyserial>=3.5"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

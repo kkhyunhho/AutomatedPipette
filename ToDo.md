@@ -146,29 +146,35 @@ the full workflow: issue -> branch -> implement -> PR.
       (GET_VERSION CP-7.0, model SINGLE_CHANNEL_1000UL)
 - [x] Commit (2), push branch, open PR (#4, closes #3)
 
-## 2026-06-07 | Control Picus 2 over USB serial from Docker
+## 2026-06-07 | Add USB serial transport via a transport abstraction
 
 ### Background
-BLE from inside Docker was blocked: it needs `--network host`, not just
-`--privileged` (AF_BLUETOOTH sockets are network-namespace scoped; see
-issue #5). USB serial has no such restriction -- a serial device is a
-plain character device reachable in a privileged container. The pipette
-now enumerates over USB as `/dev/ttyACM0` (Sartorius, `24bc:2202`,
-serial `46980628`, matching the BLE name `Picus-46980628`).
+The module was BLE-only (`bleak`). USB serial now works in Docker
+(issue #7) and is the preferred transport here. Refactor `Picus2Client`
+to talk through a pluggable transport so the command protocol and the
+pipetting helpers are shared by BLE and USB. The current BLE-only code
+is preserved on the `bluetooth-connection` branch before refactoring.
 
-### Key facts
-- Same JSON command interface as BLE:
-  `{"no": 0, "data":"<CMD>"}\r\n` over serial, 9600 8N1
-  (baud per the USB PowerShell reference; CDC-ACM ignores it).
-- Replies are line-based: `ACK n / BEGIN n / <payload> / END n`.
-- No bonding/pairing needed over USB (unlike BLE, see LP §3).
+### Design
+- `errors.py`: shared exception hierarchy (avoids a client<->transport
+  import cycle).
+- `transport.py`: `Transport` ABC + `BleTransport` (bleak) +
+  `SerialTransport` (pyserial; a reader thread frames `\r\n` lines and
+  marshals them onto the event loop via `call_soon_threadsafe`).
+- `Picus2Client(transport)` plus `over_ble(name)` / `over_serial(port)`
+  factories. The protocol and pipetting helpers are unchanged.
 
 ### Work items
-- [x] Install `pyserial` (3.5)
-- [x] Smoke test `claude_test/usb_get_version.py`: open `/dev/ttyACM0`,
-      send `GET_VERSION`, read reply -> `ACK 0 / BEGIN 0 / CP-7.0 /
-      END 0` (same firmware CP-7.0 as over BLE)
-- [ ] Add a serial transport to `src/picus2/` (design TBD: transport
-      abstraction so the command protocol is shared by BLE and USB)
-- [ ] Verify model/version round-trip via the module over USB
+- [x] Create `bluetooth-connection` branch from the BLE-only code
+- [x] Add `src/picus2/errors.py` and `src/picus2/transport.py`
+      (`Transport` ABC + `BleTransport` + `SerialTransport`)
+- [x] Refactor `client.py` to use a transport; add `over_ble` /
+      `over_serial` factory methods (bump to 0.2.0)
+- [x] Add serial constants and `pyserial` to `pyproject.toml`
+- [x] Update `__init__` exports and the example; add `example_usb.py`
+- [x] Add a hardware-free client/transport test (`FakeTransport`);
+      14 unit tests pass
+- [x] ruff clean, unit tests pass, USB hardware smoke test via the
+      module OK: `over_serial("/dev/ttyACM0")` -> version CP-7.0,
+      model SINGLE_CHANNEL_1000UL, nominal 1000uL, clean disconnect
 
