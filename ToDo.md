@@ -146,3 +146,29 @@ the full workflow: issue -> branch -> implement -> PR.
       (GET_VERSION CP-7.0, model SINGLE_CHANNEL_1000UL)
 - [x] Commit (2), push branch, open PR (#4, closes #3)
 
+## 2026-06-07 | Control Picus 2 over USB serial from Docker
+
+### Background
+BLE from inside Docker was blocked: it needs `--network host`, not just
+`--privileged` (AF_BLUETOOTH sockets are network-namespace scoped; see
+issue #5). USB serial has no such restriction -- a serial device is a
+plain character device reachable in a privileged container. The pipette
+now enumerates over USB as `/dev/ttyACM0` (Sartorius, `24bc:2202`,
+serial `46980628`, matching the BLE name `Picus-46980628`).
+
+### Key facts
+- Same JSON command interface as BLE:
+  `{"no": 0, "data":"<CMD>"}\r\n` over serial, 9600 8N1
+  (baud per the USB PowerShell reference; CDC-ACM ignores it).
+- Replies are line-based: `ACK n / BEGIN n / <payload> / END n`.
+- No bonding/pairing needed over USB (unlike BLE, see LP §3).
+
+### Work items
+- [x] Install `pyserial` (3.5)
+- [x] Smoke test `claude_test/usb_get_version.py`: open `/dev/ttyACM0`,
+      send `GET_VERSION`, read reply -> `ACK 0 / BEGIN 0 / CP-7.0 /
+      END 0` (same firmware CP-7.0 as over BLE)
+- [ ] Add a serial transport to `src/picus2/` (design TBD: transport
+      abstraction so the command protocol is shared by BLE and USB)
+- [ ] Verify model/version round-trip via the module over USB
+
