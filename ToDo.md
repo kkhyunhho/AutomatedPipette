@@ -146,3 +146,43 @@ the full workflow: issue -> branch -> implement -> PR.
       (GET_VERSION CP-7.0, model SINGLE_CHANNEL_1000UL)
 - [x] Commit (2), push branch, open PR (#4, closes #3)
 
+## 2026-06-07 | Connect Picus 2 over BLE from inside Docker (Linux/BlueZ)
+
+### Background
+Earlier BLE work bonded the pipette on a separate Windows machine.
+Now the goal is to drive the pipette from inside this Docker container
+on Linux, where `bleak` talks to BlueZ over the D-Bus system bus. The
+container exposes `hci0` (privileged) but lacks the BlueZ daemon, a
+running D-Bus system bus, and `bleak`. The pipette has been unpaired on
+the other computer so it can bond fresh here (see LP §1 Library Quirks:
+Picus 2 only answers commands over a bonded link).
+
+### Plan
+- Run the full BLE stack inside the container (chosen over sharing the
+  host D-Bus, because the prior bond lived on a different machine).
+- Bond fresh from the container using the device passkey, then verify a
+  `GET_VERSION` round-trip via `claude_test/diagnose_ble.py`.
+
+### Work items
+- [x] Install `bluez` (bluetoothd, bluetoothctl) and `bleak`
+      (bleak 3.0.2 in `.venv`)
+- [x] Start the D-Bus system bus and `bluetoothd` in the container
+      (both run; started manually, no systemd in container)
+- [ ] Power on `hci0` and confirm it scans -- BLOCKED: `AF_BLUETOOTH`
+      sockets fail with EAFNOSUPPORT. Root cause: the container has its
+      own network namespace; Bluetooth sockets are netns-scoped, so the
+      adapter is unusable despite `--privileged` and a visible
+      `/sys/.../hci0`. (see LP §5)
+- [ ] Pair/bond the pipette with its passkey from the container
+      -- blocked on the above
+- [ ] Verify `GET_VERSION` round-trip over the bonded link
+      -- blocked on the above
+- [x] Write a `claude_test/setup_docker_ble.sh` bring-up helper and
+      document it in `claude_test/README.md`
+
+### Conclusion / action required
+The container must be relaunched with `--privileged --network host`
+(host alone is not enough; `--network host` is the missing flag). After
+relaunch, run `claude_test/setup_docker_ble.sh`, bond the pipette with
+its passkey, then verify via `claude_test/diagnose_ble.py`.
+

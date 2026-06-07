@@ -5,8 +5,8 @@
 > Append new patterns after each task completes
 > (see CLAUDE.md §9 Learned Patterns Reference).
 >
-> Last updated: 2026-06-05
-> Total patterns: 6
+> Last updated: 2026-06-07
+> Total patterns: 7
 >
 > Provenance format: `(from ToDo#N)` where N is the 1-based index of the
 > top-level `##` section in `ToDo.md` at the time of extraction.
@@ -99,6 +99,23 @@ _None yet._
   - **Rule**: On Windows, prefer OS Settings pairing over programmatic
     WinRT pairing for BLE devices.
   - (from ToDo#3)
+
+- Docker BLE needs `--network host`, not just `--privileged`.
+  - **Problem**: Inside the container `bleak`/BlueZ cannot use the
+    adapter; creating an `AF_BLUETOOTH` socket fails with EAFNOSUPPORT
+    ("Address family not supported") even though the container is
+    privileged, the bluetooth kernel module is loaded, and
+    `/sys/class/bluetooth/hci0` is visible.
+  - **Cause**: Linux Bluetooth sockets are network-namespace scoped.
+    A container with its own netns has no Bluetooth socket family; the
+    visible `hci0` is only a sysfs mount, not a usable adapter.
+  - **Fix**: Relaunch the container with `--privileged --network host`
+    so it shares the host netns. Then start the D-Bus system bus and
+    `bluetoothd` inside the container (no systemd) via
+    `claude_test/setup_docker_ble.sh`.
+  - **Rule**: Always run BLE containers with `--network host`; treat a
+    visible `/sys` hci0 as necessary but not sufficient.
+  - (from ToDo#7)
 
 ## §99. Uncategorized
 
