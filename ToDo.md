@@ -207,5 +207,5 @@ universal control; `bluetooth-connection` is framed around BLE.
       LH-747081, 1-ch 50-1,000 uL, model SINGLE_CHANNEL_1000UL, CP-7.0)
 - [x] Write `README.md` on `main` (device specs, module architecture,
       USB/BLE connection, usage, safety)
-- [ ] Write `README.md` on the `bluetooth-connection` branch (BLE focus)
+- [x] Write `README.md` on the `bluetooth-connection` branch (BLE focus)
 
