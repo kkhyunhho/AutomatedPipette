@@ -115,6 +115,20 @@ _None yet._
     WinRT pairing for BLE devices.
   - (from ToDo#3)
 
+- USB serial is the reliable Picus 2 transport inside Docker.
+  - **Problem**: BLE from a container needs the host network namespace
+    (`--network host`); without it `AF_BLUETOOTH` sockets fail with
+    EAFNOSUPPORT even when privileged and `hci0` is visible.
+  - **Cause**: Bluetooth sockets are netns-scoped; serial devices are
+    not -- a `/dev/ttyACM*` node is reachable in a privileged container
+    with no special networking.
+  - **Fix**: Drive the pipette over USB. It enumerates as a CDC-ACM
+    device (`/dev/ttyACM0`, `24bc:2202`, serial `46980628`); send the
+    same JSON commands at 9600 8N1. No bonding/pairing is required.
+  - **Rule**: Prefer USB serial over BLE for the Picus 2 in Docker;
+    reserve BLE for hosts you can launch with `--network host`.
+  - (from ToDo#8)
+
 ## §99. Uncategorized
 
 _None yet._
