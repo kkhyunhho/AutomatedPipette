@@ -178,3 +178,18 @@ is preserved on the `bluetooth-connection` branch before refactoring.
       module OK: `over_serial("/dev/ttyACM0")` -> version CP-7.0,
       model SINGLE_CHANNEL_1000UL, nominal 1000uL, clean disconnect
 
+## 2026-06-07 | Forward pipetting with real liquid over USB
+
+### Background
+First real-liquid actuation over the USB transport, using the module's
+`Picus2Client.over_serial`. Reuses the proven flow (LP §3): authorize
+motor control with NO tip mounted (the client also sends AUTO 1), then
+aspirate -> move -> blow-out, with interactive pauses for the physical
+steps. Run in a real terminal. Volume 500 uL, speed 7.
+
+### Work items
+- [x] Add `claude_test/forward_pipetting_usb.py` (interactive, over USB;
+      ruff clean, compiles, module import OK)
+- [ ] User runs it in a terminal with real liquid (500 uL, speed 7)
+- [ ] Record the observed result
+
