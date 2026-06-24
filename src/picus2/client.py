@@ -97,7 +97,7 @@ class Picus2Client:
     @classmethod
     def over_serial(
         cls,
-        port: str,
+        port: str | None = None,
         *,
         baud: int = constants.default_serial_baud,
         command_timeout: float = constants.default_command_timeout,
@@ -105,7 +105,10 @@ class Picus2Client:
         """Build a client that talks to the pipette over USB serial.
 
         Args:
-            port: Serial device path, e.g. ``"/dev/ttyACM0"``.
+            port: USB port spec resolved at connect time: ``None``
+                (auto-detect the pipette by USB identity ``24BC:2202``),
+                an explicit device path (e.g. ``"/dev/ttyACM0"``), or a
+                ``"VID:PID"`` / ``"VID:PID:SERIAL"`` hex string.
             baud: Baud rate; CDC-ACM ignores it but it must be valid.
             command_timeout: Seconds to wait for each command to finish.
 

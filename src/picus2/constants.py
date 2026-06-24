@@ -9,6 +9,13 @@ uart_tx_char_uuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 # ignores the baud rate, but the reference test uses 9600.
 default_serial_baud = 9600
 
+# USB identity of the Picus 2 CDC-ACM port. The Entris-II balance shares
+# the Sartorius VID (24BC:0010), so the pipette is matched by full VID:PID,
+# never the vendor ID alone. Used to resolve the port by USB identity
+# instead of an arrival-order /dev/ttyACM* index.
+usb_vid = 0x24BC
+usb_pid = 0x2202
+
 # Poll interval (seconds) for the serial reader; bounds shutdown latency.
 serial_read_timeout = 0.2
 

@@ -27,6 +27,66 @@ logger = logging.getLogger(__name__)
 LineHandler = Callable[[bytes], None]
 
 
+def _resolve_port(spec: str | None) -> str:
+    """Resolve a USB serial port spec to a concrete device path.
+
+    ``spec`` is one of:
+
+    - ``None`` — auto-detect the Picus 2 CDC-ACM port by USB identity
+      (VID:PID ``24BC:2202``). The Entris-II balance shares the Sartorius
+      VID (``24BC:0010``), so the pipette is matched by **full VID:PID**.
+    - an explicit device path (contains ``/`` or starts with ``COM``);
+    - a ``"VID:PID"`` or ``"VID:PID:SERIAL"`` hex string matched against
+      attached serial ports at runtime.
+
+    Resolving by USB identity keeps the pipette addressable after a
+    ``/dev/ttyACM*`` renumber or a move to a different USB socket.
+
+    Raises:
+        ValueError: ``spec`` is neither a path nor valid USB-identity hex.
+        DeviceNotFoundError: the spec matched zero or several devices.
+    """
+    if spec is not None and ("/" in spec or spec.upper().startswith("COM")):
+        return spec
+    import serial.tools.list_ports
+
+    serial_number: str | None = None
+    if spec is None:
+        vid, pid = constants.usb_vid, constants.usb_pid
+        label = "Picus 2 USB (24BC:2202)"
+    else:
+        parts = spec.split(":")
+        try:
+            if len(parts) == 2:
+                vid, pid = int(parts[0], 16), int(parts[1], 16)
+            elif len(parts) == 3:
+                vid, pid = int(parts[0], 16), int(parts[1], 16)
+                serial_number = parts[2]
+            else:
+                raise ValueError
+        except ValueError as error:
+            raise ValueError(
+                f"port {spec!r} is neither a device path nor "
+                "VID:PID[:SERIAL] hex"
+            ) from error
+        label = spec
+    matches = [
+        info.device
+        for info in serial.tools.list_ports.comports()
+        if info.vid == vid
+        and info.pid == pid
+        and (serial_number is None or info.serial_number == serial_number)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise DeviceNotFoundError(f"no serial device matches {label}")
+    raise DeviceNotFoundError(
+        f"{label} matches several devices {matches} — add the USB serial "
+        "(VID:PID:SERIAL) or use an explicit device path"
+    )
+
+
 class Transport(ABC):
     """A bidirectional link to the pipette's line protocol."""
 
@@ -174,14 +234,18 @@ class SerialTransport(Transport):
 
     def __init__(
         self,
-        port: str,
+        port: str | None = None,
         *,
         baud: int = constants.default_serial_baud,
     ) -> None:
         """Initialize the serial transport.
 
         Args:
-            port: Serial device path, e.g. ``"/dev/ttyACM0"``.
+            port: Port spec resolved at ``connect()`` by ``_resolve_port``:
+                ``None`` (auto-detect the pipette by USB identity
+                ``24BC:2202``), an explicit device path (e.g.
+                ``"/dev/ttyACM0"``), or ``"VID:PID"`` /
+                ``"VID:PID:SERIAL"`` hex.
             baud: Baud rate; CDC-ACM ignores it but it must be valid.
         """
         super().__init__()
@@ -205,19 +269,20 @@ class SerialTransport(Transport):
         """
         import serial
 
+        device = _resolve_port(self._port)
         self._loop = asyncio.get_running_loop()
         try:
             self._serial = await self._loop.run_in_executor(
                 None,
                 lambda: serial.Serial(
-                    self._port,
+                    device,
                     self._baud,
                     timeout=constants.serial_read_timeout,
                 ),
             )
         except (serial.SerialException, OSError) as error:
             raise DeviceNotFoundError(
-                f"could not open {self._port}: {error}"
+                f"could not open {device}: {error}"
             ) from error
         self._stop.clear()
         self._reader = threading.Thread(
@@ -226,7 +291,7 @@ class SerialTransport(Transport):
             daemon=True,
         )
         self._reader.start()
-        logger.info("opened %s over USB serial", self._port)
+        logger.info("opened %s (%s) over USB serial", device, self._port)
 
     async def disconnect(self) -> None:
         """Stop the reader thread and close the serial port."""
