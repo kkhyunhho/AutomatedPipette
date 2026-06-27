@@ -8,16 +8,16 @@ For the big picture and all shared conventions — the "one cell, many
 devices" architecture, code style, repo skeleton, codename naming, the
 driver API contract, the (optional) FastAPI `/v1` server standard, the
 hybrid integration model, testing strategy, and task/commit rules — see
-**CommonClaude** (`kkhyunhho/CommonClaude`), the single source of truth.
+**SDLClaude** (`kkhyunhho/SDLClaude`), the single source of truth.
 
 This file holds only what is specific to **AutomatedPipette**: the
 Sartorius Picus 2 electronic pipette, its BLE / USB transports, and the
-device prerequisites. Where this file is silent, CommonClaude governs.
+device prerequisites. Where this file is silent, SDLClaude governs.
 
 This project is a **device driver** for the codename **`picus2`**: package
 [src/picus2/](src/picus2/), client class `Picus2Client` (async). It is a
 library-only driver; no FastAPI `server/` is shipped (server is added per
-need, not for every device — see CommonClaude).
+need, not for every device — see SDLClaude).
 
 ## Environment
 
