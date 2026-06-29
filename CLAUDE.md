@@ -32,12 +32,12 @@ on a background thread inside `SerialTransport`.
 
 ## Commands
 
-All projects share one conda env, **`elec`** (electrochemistry-automation
+All projects share one conda env, **`sdl`** (electrochemistry-automation
 lab; Python 3.12), where every driver package is `pip install -e`'d. New
 terminals activate it automatically.
 
 ```bash
-conda activate elec          # one-time per project: pip install -e ".[dev]"
+conda activate sdl          # one-time per project: pip install -e ".[dev]"
 
 ruff check src tests claude_test     # lint (80-col)
 ruff format --check src tests claude_test
